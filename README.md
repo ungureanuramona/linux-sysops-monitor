@@ -1,6 +1,6 @@
 
 # Linux SysOps Monitor
-
+![Linux SysOps Monitor CI](https://github.com/ungureanuramona/linux-sysops-monitor/actions/workflows/tests.yml/badge.svg)
 A lightweight Linux monitoring tool built with Python for system health checks, service availability monitoring, and incident logging.
 
 ## Features

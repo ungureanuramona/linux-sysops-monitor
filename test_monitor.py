@@ -1,8 +1,12 @@
+
+import json
 import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
-from monitor import get_status, check_service
+from monitor import check_service, get_status, save_json_report
 
 
 class TestMonitorAlerts(unittest.TestCase):
@@ -64,6 +68,65 @@ class TestServiceMonitoring(unittest.TestCase):
 
         self.assertEqual(status, "CRITICAL")
         self.assertEqual(state, "unknown")
+
+
+class TestJsonReport(unittest.TestCase):
+
+    def test_json_report(self):
+        metrics = {
+            "timestamp": "2026-10-27T13:00:00",
+            "cpu_percent": 25.0,
+            "memory_percent": 85.0,
+            "disk_percent": 96.0,
+        }
+
+        services = {
+            "cron.service": {
+                "status": "OK",
+                "state": "active",
+            }
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_file = Path(temp_dir) / "metrics.json"
+
+            with patch("monitor.open", create=True) as mocked_open:
+                import builtins
+
+                mocked_open.side_effect = (
+                    lambda filename, *args, **kwargs:
+                    builtins.open(output_file, *args, **kwargs)
+                )
+
+                save_json_report(metrics, services)
+
+            with output_file.open(encoding="utf-8") as file:
+                report = json.load(file)
+
+        self.assertEqual(
+            report["timestamp"],
+            "2026-10-27T13:00:00",
+        )
+
+        self.assertEqual(
+            report["resources"]["cpu"]["status"],
+            "OK",
+        )
+
+        self.assertEqual(
+            report["resources"]["memory"]["status"],
+            "WARNING",
+        )
+
+        self.assertEqual(
+            report["resources"]["disk"]["status"],
+            "CRITICAL",
+        )
+
+        self.assertEqual(
+            report["services"]["cron.service"]["state"],
+            "active",
+        )
 
 
 if __name__ == "__main__":

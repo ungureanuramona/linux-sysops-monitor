@@ -1,5 +1,7 @@
-import subprocess
+
+import json
 import logging
+import subprocess
 from datetime import datetime
 
 import psutil
@@ -63,6 +65,30 @@ def check_service(service_name):
     return status, state
 
 
+def save_json_report(metrics, services):
+    report = {
+        "timestamp": metrics["timestamp"],
+        "resources": {
+            "cpu": {
+                "usage_percent": metrics["cpu_percent"],
+                "status": get_status(metrics["cpu_percent"]),
+            },
+            "memory": {
+                "usage_percent": metrics["memory_percent"],
+                "status": get_status(metrics["memory_percent"]),
+            },
+            "disk": {
+                "usage_percent": metrics["disk_percent"],
+                "status": get_status(metrics["disk_percent"]),
+            },
+        },
+        "services": services,
+    }
+
+    with open("metrics.json", "w", encoding="utf-8") as file:
+        json.dump(report, file, indent=4)
+
+
 def main():
     metrics = get_system_metrics()
 
@@ -103,11 +129,18 @@ def main():
     print("\nSYSTEM SERVICES")
     print("-" * 35)
 
+    services_report = {}
+
     for service in SERVICES:
         try:
             status, state = check_service(service)
 
             print(f"{service}: [{status}] {state}")
+
+            services_report[service] = {
+                "status": status,
+                "state": state,
+            }
 
             if status == "CRITICAL":
                 logging.critical(
@@ -119,6 +152,11 @@ def main():
         except subprocess.TimeoutExpired:
             print(f"{service}: [CRITICAL] timeout")
 
+            services_report[service] = {
+                "status": "CRITICAL",
+                "state": "timeout",
+            }
+
             logging.critical(
                 "Service %s check timed out",
                 service,
@@ -127,11 +165,22 @@ def main():
         except OSError as error:
             print(f"{service}: [CRITICAL] {error}")
 
+            services_report[service] = {
+                "status": "CRITICAL",
+                "state": "error",
+                "message": str(error),
+            }
+
             logging.critical(
                 "Service %s check failed: %s",
                 service,
                 error,
             )
+
+    # Save monitoring results as JSON
+    save_json_report(metrics, services_report)
+
+    print("\nJSON report saved to metrics.json")
 
 
 if __name__ == "__main__":

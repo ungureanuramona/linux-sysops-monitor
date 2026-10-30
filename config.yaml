@@ -1,0 +1,11 @@
+
+# Linux SysOps Monitor configuration
+
+thresholds:
+  warning: 80
+  critical: 95
+
+services:
+  - systemd-journald.service
+  - cron.service
+  - rsyslog.service
